@@ -1,6 +1,9 @@
 package com.example.elasticsearch;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.mapping.IntegerNumberProperty;
+import co.elastic.clients.elasticsearch._types.mapping.Property;
+import co.elastic.clients.elasticsearch._types.mapping.TextProperty;
 import co.elastic.clients.elasticsearch.cat.IndicesResponse;
 import co.elastic.clients.elasticsearch.indices.CreateIndexResponse;
 import co.elastic.clients.elasticsearch.indices.DeleteIndexResponse;
@@ -12,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -36,6 +40,39 @@ public class IndexTest
     @Test
     void createIndex() throws IOException {
         CreateIndexResponse response = elasticsearchClient.indices().create(c -> c.index("products"));
+        //响应状态
+        boolean acknowledged = response.acknowledged();
+        boolean shardsAcknowledged = response.shardsAcknowledged();
+        String index = response.index();
+        log.info("创建索引状态:{}",acknowledged);
+        log.info("已确认的分片:{}",shardsAcknowledged);
+        log.info("索引名称:{}",index);
+    }
+
+    /**
+     * 创建索引并设置字段使用IK分词器
+     *
+     * @throws IOException ioexception
+     */
+    @Test
+    void createIndexAndIk() throws IOException {
+        Map<String, Property> documentMap = new HashMap<>();
+        documentMap.put("userName",Property.of(p -> p
+                .text(TextProperty.of(textProperty ->
+                        textProperty.index(true).analyzer("ik_max_word")))));
+
+        documentMap.put("age", Property.of(property ->
+                        property.integer(IntegerNumberProperty.of(integerNumberProperty
+                                -> integerNumberProperty.index(true))
+                        )
+                )
+        );
+        CreateIndexResponse response = elasticsearchClient.indices().create(createIndexBuilder ->
+                createIndexBuilder.index("user").mappings(mappings ->
+                                mappings.properties(documentMap))
+                        .aliases("User",aliases ->
+                                aliases.isWriteIndex(true))
+        );
         //响应状态
         boolean acknowledged = response.acknowledged();
         boolean shardsAcknowledged = response.shardsAcknowledged();
