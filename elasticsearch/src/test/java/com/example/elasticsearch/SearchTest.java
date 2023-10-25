@@ -2,10 +2,9 @@ package com.example.elasticsearch;
 
 import cn.hutool.json.JSONUtil;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.SortOrder;
-import co.elastic.clients.elasticsearch._types.query_dsl.MatchQuery;
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.*;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
@@ -18,13 +17,12 @@ import co.elastic.clients.json.JsonData;
 import com.example.elasticsearch.model.User;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
+import org.junit.platform.commons.util.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @version 1.0.0
@@ -108,6 +106,67 @@ public class SearchTest
         } else {
             log.info("There are more than " + total.value() + " results");
         }
+
+        List<Hit<User>> hits = response.hits().hits();
+        for (Hit<User> hit: hits) {
+            User user = hit.source();
+            assert user != null;
+            log.info("Found userId " + user.getId() + ", name " + user.getName());
+        }
+    }
+
+    /**
+     * 多条件查询（IN ）
+     *
+     * @throws IOException ioexception
+     */
+    @Test
+    void searchIn() throws IOException {
+        /*方式一：terms多条件查询*/
+        List<FieldValue> values = new ArrayList<>();
+        values.add(FieldValue.of("zhaosi"));
+        values.add(FieldValue.of("liuyifei"));
+
+        Query queryIn = TermsQuery.of(t -> t.field("name.keyword").terms(new TermsQueryField.Builder()
+                .value(values).build()))._toQuery();
+        SearchResponse<User> response = elasticsearchClient.search(s -> s
+                        // 我们要搜索的索引的名称
+                        .index("users")
+                        // 搜索请求的查询部分（搜索请求也可以有其他组件，如聚合）
+                        .query(q -> q
+                                .bool(b -> b
+                                        .must(queryIn)
+                                        .should(sh -> sh
+                                                .match(t -> t.field("name")
+                                                        .query("")))
+                                )
+                        ),
+                // 匹配文档的目标类
+                User.class
+        );
+
+        /*方式二，使用模板化搜索，直接编写 terms 语句
+        * 官方文档：https://www.elastic.co/guide/en/elasticsearch/reference/8.3/search-template.html#search-template-convert-json
+        * */
+        /*elasticsearchClient.putScript(r -> r
+                // 要创建的模板脚本的标识符
+                .id("query-script")
+                .script(s -> s
+                        .lang("mustache")
+                        .source("{\"query\":{\"terms\":{\"{{field}}\": {{#toJson}}values{{/toJson}} }}}")
+                ));
+        String field = "name.keyword";
+        List<String> values = Arrays.asList("liuyifei","zhangya");
+        String v = String.join(",",values);
+        SearchTemplateResponse<User> response = elasticsearchClient.searchTemplate(r -> r
+                        .index("users")
+                        // 要使用的模板脚本的标识符
+                        .id("query-script")
+                        // 模板参数值
+                        .params("field", JsonData.of(field))
+                        .params("values", JsonData.of(values)),
+                User.class
+        );*/
 
         List<Hit<User>> hits = response.hits().hits();
         for (Hit<User> hit: hits) {
