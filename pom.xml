@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.example</groupId>
-    <artifactId>elasticsearch</artifactId>
+    <artifactId>elastic-search8.x</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>elasticsearch</name>
-    <description>elasticsearch</description>
+    <name>elastic-search8.x</name>
+    <description>elastic-search8.x</description>
     <properties>
         <java.version>1.8</java.version>
     </properties>
