@@ -22,7 +22,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @version 1.0.0
@@ -297,6 +300,7 @@ public class SearchTest
     {
         SearchResponse<User> response = elasticsearchClient.search(s -> s
                         .index("users")
+                        // 这里的 query 可忽略
                         .query(q -> q
                                 .matchAll( m -> m)
                         )
@@ -363,7 +367,7 @@ public class SearchTest
                                 // 模糊查询
                                 .fuzzy(f -> f
                                         // 需要判断的字段名称
-                                        .field("name")
+                                        .field("name.keyword")
                                         // 需要模糊查询的关键词
                                         .value("liuyi")
                                         // fuzziness代表可以与关键词有误差的字数，可选值为0、1、2这三项
@@ -458,4 +462,46 @@ public class SearchTest
         }
         log.info(JSONUtil.toJsonStr(userList));
     }
+
+    /**
+     * 糅合查询，将以上方法整合进行查询
+     * 部分字段索引中不存在，该方法只提供写法，不保证成功运行
+     */
+    @Test
+    public void specifyFieldQuery1() throws IOException, ParseException {
+        BoolQuery.Builder boolQuery = QueryBuilders.bool();
+        // 精确查询
+        boolQuery.must(TermQuery.of(t -> t.field("address.keyword").value("提瓦特"))._toQuery());
+
+        // 多条件 in 查询
+        // in 构建方式一
+        List<FieldValue> nameList = Arrays.asList(FieldValue.of("霄"), FieldValue.of("甘雨"), FieldValue.of("心海"));
+        boolQuery.must(TermsQuery.of(t -> t.field("name.keyword").terms(new TermsQueryField.Builder().value(nameList).build()))._toQuery());
+        // in 构建方式二
+//        List<String> nameList = Arrays.asList("霄", "甘雨", "心海");
+//        boolQuery.must(TermsQuery.of(t -> t.field("name.keyword").terms(new TermsQueryField.Builder().value(nameList.stream().map(FieldValue::of).collect(Collectors.toList())).build()))._toQuery());
+
+        SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        SimpleDateFormat dateParser = new SimpleDateFormat("yyyy-MM-dd");
+        String startDateParam = dateFormatter.format(dateParser.parse("date"));
+        boolQuery.must(RangeQuery.of(t -> t.field("signTime").gte(JsonData.of(startDateParam)))._toQuery());
+
+        SearchResponse<User> search = elasticsearchClient.search(s -> s
+                        .index("users")
+                        .query(q -> q
+                                .bool(boolQuery.build())
+                        )
+                        .from(0)
+                        .size(4)
+                        .sort(sortOptionsBuilder -> sortOptionsBuilder
+                                .field(fieldSortBuilder -> fieldSortBuilder
+                                        .field("signTime").order(SortOrder.Desc)
+                                )
+                        )
+                , User.class);
+
+        List<User> signRecordList = search.hits().hits().stream().map(Hit::source).collect(Collectors.toList());
+        log.info(JSONUtil.toJsonStr(signRecordList));
+    }
+
 }
