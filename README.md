@@ -9,3 +9,14 @@
 
 1.  clone项目，根据笔记内容进行一步步学习深入
 
+#### es集群引入方式
+1. application内容改为：
+   
+    /**
+     * elasticsearch:
+     *   hosts: 10.4.122.74:9200,10.1.134.73:9200,10.2.156.64:9200
+     *   username: elastic
+     *   password: Mv23435@al
+     *   
+     */
+2. 客户端改为 EsClientConfig
