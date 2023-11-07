@@ -83,6 +83,35 @@ public class IndexTest
     }
 
     /**
+     * 创建索引--方式三，使用model创建索引
+     * 对于字段，可以提前指定全部或者指定部分字段，也可以不指定，在插入文档的时候交给es自动生成
+     */
+
+    @Test
+    public void createIndexWithModel() throws IOException {
+        // 3.创建索引
+        CreateIndexResponse response = elasticsearchClient
+                .indices()
+                .create(c -> c
+                                .index("users")
+                                .settings(sBuilder -> sBuilder
+                                        .index(iBuilder -> iBuilder
+                                                // 3个分片
+                                                .numberOfShards("3")
+                                                // 一个副本
+                                                .numberOfReplicas("1")))
+                                .mappings(mBuilder -> mBuilder
+                                                // 格式化日期
+                                                .dynamicDateFormats("yyyy-MM-dd HH:mm:ss")
+                                                .dateDetection(true)
+//                                .properties(IndexTestModel.ID, pBuilder -> pBuilder.keyword(keywordPropertyBuilder -> keywordPropertyBuilder.ignoreAbove(30)))
+//                                .properties(IndexTestModel.NAME, pBuilder -> pBuilder.keyword(keywordPropertyBuilder -> keywordPropertyBuilder.ignoreAbove(30)))
+                                )
+                );
+        log.info("创建索引状态:{}", response.acknowledged());
+    }
+
+    /**
      * 获取索引
      */
     @Test
